@@ -166,7 +166,7 @@ async fn async_main() -> Result<()> {
         forwarding_loop(
             process_stdin,
             subprocess_writer,
-            "server-recv",
+            "client-to-server",
             &output_folder,
         )
         .await
@@ -177,7 +177,7 @@ async fn async_main() -> Result<()> {
         forwarding_loop(
             subprocess_reader,
             process_stdout,
-            "server-send",
+            "server-to-client",
             &output_folder,
         )
         .await
