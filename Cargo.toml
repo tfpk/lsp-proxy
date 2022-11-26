@@ -5,6 +5,14 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+path = "src/proxy.rs"
+name = "lsp-proxy"
+
+[[bin]]
+path = "src/replay.rs"
+name = "lsp-replay"
+
 [dependencies]
 anyhow = "1.0.66"
 nom = "7.1.1"

@@ -1,7 +1,6 @@
 use std::env::current_exe;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Context, Result};
 
@@ -33,26 +32,6 @@ struct Packet {
 }
 
 const CONFIG_FILE_NAME: &str = "lsp_proxy.toml";
-
-fn get_time_in_millis() -> u128 {
-    let start = SystemTime::now();
-    let since_the_epoch = start
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards");
-    since_the_epoch.as_millis()
-}
-
-async fn write_to_log(path: impl AsRef<Path>, text: &str, msg_type: &str) -> Result<()> {
-    let time = get_time_in_millis();
-    let mut path = path.as_ref().to_path_buf();
-    path.push(format!("{time}_{msg_type}.json"));
-
-    let mut output = tokio::fs::File::create(&path).await?;
-    output.write_all(text.as_bytes()).await?;
-    eprintln!("{text}");
-
-    Ok(())
-}
 
 fn get_path_of_binary() -> Result<PathBuf> {
     let current_exe_path = current_exe()?;
@@ -86,6 +65,8 @@ where
                 .context("Trying to parse Content-Length")?;
         } else if line.strip_prefix("Content-Type: ").is_some() {
             // ignored.
+        } else if line.is_empty() {
+            continue;
         } else if line == "\r\n" {
             break;
         } else {
@@ -107,11 +88,33 @@ where
     })
 }
 
-async fn forwarding_loop<T>(
+async fn file_sender<T>(
     mut reader: BufReader<T>,
     mut writer: impl AsyncWriteExt + std::marker::Unpin,
-    msg_type: &str,
-    output_folder: &Path,
+) where
+    BufReader<T>: AsyncBufRead,
+    BufReader<T>: AsyncBufReadExt,
+    T: std::marker::Unpin,
+{
+    loop {
+        let mut path = String::new();
+        reader.read_line(&mut path).await.unwrap();
+        let s = std::fs::read_to_string(path.trim()).unwrap();
+        let s = s.as_bytes();
+
+        writer
+            .write_all(
+                format!("Content-Length: {}\r\n\r\n", s.len()).as_bytes(),
+            )
+            .await
+            .unwrap();
+        writer.write_all(s).await.unwrap();
+    }
+}
+
+async fn output_printer<T>(
+    mut reader: BufReader<T>,
+    mut writer: impl AsyncWriteExt + std::marker::Unpin,
 ) where
     BufReader<T>: AsyncBufRead,
     BufReader<T>: AsyncBufReadExt,
@@ -119,16 +122,13 @@ async fn forwarding_loop<T>(
 {
     loop {
         let packet = read_packet_from_input(&mut reader).await.unwrap();
-        write_to_log(&output_folder, &packet.formatted, msg_type)
-            .await
-            .unwrap();
         writer
             .write_all(
                 format!("Content-Length: {}\r\n\r\n", packet.header.content_length).as_bytes(),
             )
             .await
             .unwrap();
-        writer.write_all(&packet.raw.into_bytes()).await.unwrap();
+        writer.write_all(&packet.formatted.into_bytes()).await.unwrap();
     }
 }
 
@@ -160,26 +160,18 @@ async fn async_main() -> Result<()> {
     let process_stdin = BufReader::new(get_stdin());
     let process_stdout = get_stdout();
 
-    // Ensure the child process is spawned in the runtime so it can
-    // make progress on its own while we await for any output.
-    let output_folder = config.output_folder.clone();
     tokio::spawn(async move {
-        forwarding_loop(
+        file_sender(
             process_stdin,
             subprocess_writer,
-            "server-recv",
-            &output_folder,
         )
         .await
     });
 
-    let output_folder = config.output_folder;
     tokio::spawn(async move {
-        forwarding_loop(
+        output_printer(
             subprocess_reader,
             process_stdout,
-            "server-send",
-            &output_folder,
         )
         .await
     });
