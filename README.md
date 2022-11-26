@@ -15,7 +15,15 @@ It's currently very rough, and only contains two binaries:
  - `lsp-replay` -- accepts one path on each line of the input.
    opens that file, which should contain plain JSON, and encodes
    it as an LSP message. The LSP is then printed to stdout.
-   
+
+
+## What LSP Proxy Does
+
+LSP Proxy outputs communications between the client and server to files
+in a specificed folder. It means that you end up with a series of 
+timestamped files showing exactly what the inputs and outputs of 
+RustAnalyzer (and the client interacting with it) were.
+
 
 ## How To Use
 
