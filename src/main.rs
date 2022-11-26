@@ -6,14 +6,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{bail, Context, Result};
 
 use serde::{Deserialize, Serialize};
-use serde_json::{to_string_pretty, from_str, Value};
+use serde_json::{from_str, to_string_pretty, Value};
 
 use tokio::io::{
     stdin as get_stdin, stdout as get_stdout, AsyncBufRead, AsyncBufReadExt, AsyncReadExt,
     AsyncWriteExt, BufReader,
 };
 use tokio::process::Command;
-
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Config {
@@ -34,7 +33,6 @@ struct Packet {
 }
 
 const CONFIG_FILE_NAME: &str = "lsp_proxy.toml";
-
 
 fn get_time_in_millis() -> u128 {
     let start = SystemTime::now();
@@ -109,16 +107,18 @@ where
     })
 }
 
-async fn forwarding_loop<T>(mut reader: BufReader<T>, mut writer: impl AsyncWriteExt + std::marker::Unpin, msg_type: &str, output_folder: &Path)
-where
+async fn forwarding_loop<T>(
+    mut reader: BufReader<T>,
+    mut writer: impl AsyncWriteExt + std::marker::Unpin,
+    msg_type: &str,
+    output_folder: &Path,
+) where
     BufReader<T>: AsyncBufRead,
     BufReader<T>: AsyncBufReadExt,
-    T: std::marker::Unpin
+    T: std::marker::Unpin,
 {
     loop {
-        let packet = read_packet_from_input(&mut reader)
-            .await
-            .unwrap();
+        let packet = read_packet_from_input(&mut reader).await.unwrap();
         write_to_log(&output_folder, &packet.formatted, msg_type)
             .await
             .unwrap();
@@ -128,10 +128,7 @@ where
             )
             .await
             .unwrap();
-        writer
-            .write_all(&packet.raw.into_bytes())
-            .await
-            .unwrap();
+        writer.write_all(&packet.raw.into_bytes()).await.unwrap();
     }
 }
 
@@ -167,12 +164,24 @@ async fn async_main() -> Result<()> {
     // make progress on its own while we await for any output.
     let output_folder = config.output_folder.clone();
     tokio::spawn(async move {
-        forwarding_loop(process_stdin, subprocess_writer, "server-recv", &output_folder).await
+        forwarding_loop(
+            process_stdin,
+            subprocess_writer,
+            "server-recv",
+            &output_folder,
+        )
+        .await
     });
 
     let output_folder = config.output_folder;
     tokio::spawn(async move {
-        forwarding_loop(subprocess_reader, process_stdout, "server-send", &output_folder).await
+        forwarding_loop(
+            subprocess_reader,
+            process_stdout,
+            "server-send",
+            &output_folder,
+        )
+        .await
     });
 
     child
