@@ -24,6 +24,29 @@ in a specificed folder. It means that you end up with a series of
 timestamped files showing exactly what the inputs and outputs of 
 RustAnalyzer (and the client interacting with it) were.
 
+For example, you might end up with the following:
+
+``` sh
+$ ls /path/to/lsp-captures/ | sort
+1669457623539_client-to-server.json
+1669457623542_server-to-client.json
+1669457623545_client-to-server.json
+1669457623547_server-to-client.json
+1669457623562_client-to-server.json
+1669457623563_client-to-server.json
+1669457623643_client-to-server.json
+1669457623644_client-to-server.json
+1669457623644_server-to-client.json
+1669457623645_server-to-client.json
+1669457623769_server-to-client.json
+1669457623820_client-to-server.json
+1669457623821_server-to-client.json
+...
+```
+
+Each json file is either a message from the client to the server,
+ or the server to the client. The number is a unix timestamp in
+ milliseconds, so you can order the messages by time sent.
 
 ## How To Use
 
